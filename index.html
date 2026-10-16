@@ -724,9 +724,21 @@ footer a:hover{color:var(--accent)}
       btn.disabled=true;note('Sending…');
       fetch('https://formsubmit.co/ajax/'+TO,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
         body:JSON.stringify({name:v.name,email:v.email,message:v.message,_subject:'Portfolio message from '+v.name,_template:'table',_captcha:'false'})})
-      .then(function(r){return r.json().then(function(j){if(!r.ok||String(j.success)==='false')throw new Error(j.message||'failed');return j})})
-      .then(function(){f.reset();note('Thanks, '+v.name.split(' ')[0]+'. Your message was sent. I will reply to '+v.email+'.','ok')})
-      .catch(function(){note('The message could not be sent from here. Please email '+TO+' directly.','err')})
+      .then(function(r){return r.json().catch(function(){return {}}).then(function(j){j.ok=r.ok;return j})})
+      .then(function(j){
+        var m=String(j.message||'');
+        if(j.ok&&String(j.success)!=='false'){f.reset();note('Thanks, '+v.name.split(' ')[0]+'. Your message was sent. I will reply to '+v.email+'.','ok');return}
+        if(/activat/i.test(m)){note('Almost there: this form is being set up. Please try again in a little while, or email '+TO+'.','err');return}
+        throw new Error(m||'failed');
+      })
+      .catch(function(){
+        // fall back to a normal form post, which FormSubmit also accepts
+        if(location.protocol.indexOf('http')!==0){note('The message could not be sent from here. Please email '+TO+' directly.','err');return}
+        var h=document.createElement('form');h.method='POST';h.action='https://formsubmit.co/'+TO;h.style.display='none';
+        var data={name:v.name,email:v.email,message:v.message,_subject:'Portfolio message from '+v.name,_template:'table',_captcha:'false',_next:location.href.split('#')[0]+'#contact'};
+        Object.keys(data).forEach(function(k){var i=document.createElement('input');i.type='hidden';i.name=k;i.value=data[k];h.appendChild(i)});
+        document.body.appendChild(h);note('Sending…');h.submit();
+      })
       .then(function(){btn.disabled=false});
     });
   })();
